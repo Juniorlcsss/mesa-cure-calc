@@ -8,14 +8,14 @@
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
   :root{
-    --bg: #0a0d09;
-    --panel: #10140d;
-    --panel-2: #151a10;
-    --line: #263420;
-    --text: #cfe0c4;
-    --text-dim: #7f9271;
-    --accent: #7fd858;
-    --accent-dim: #4f7a3a;
+    --bg: #080b10;
+    --panel: #0e131a;
+    --panel-2: #131a23;
+    --line: #212c3a;
+    --text: #ccd7e2;
+    --text-dim: #62758a;
+    --accent: #4fb8d6;
+    --accent-dim: #2c6577;
     --amber: #e8a33d;
     --danger: #e5484d;
     --mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -28,7 +28,7 @@
     margin:0;
     background: var(--bg);
     background-image:
-      radial-gradient(ellipse at top left, rgba(127,216,88,0.05), transparent 55%),
+      radial-gradient(ellipse at top left, rgba(79,184,214,0.05), transparent 55%),
       repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
     color: var(--text);
     font-family: var(--sans);
@@ -67,7 +67,7 @@
     letter-spacing: .01em;
     margin: 0 0 4px;
     color: var(--accent);
-    text-shadow: 0 0 18px rgba(127,216,88,0.25);
+    text-shadow: 0 0 18px rgba(79,184,214,0.25);
   }
   .subtitle{
     font-size: 13px;
@@ -116,25 +116,20 @@
     display:flex; align-items:center; justify-content:space-between;
     gap: 8px;
   }
-  .target-cell.active{ border-color: var(--accent-dim); background: rgba(127,216,88,0.06); }
+  .target-cell.active{ border-color: var(--accent-dim); background: rgba(79,184,214,0.06); }
   .target-cell label{
     font-size: 12px;
     color: var(--text);
     flex: 1;
     cursor: pointer;
   }
-  .target-cell input{
-    width: 54px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 13px;
-    text-align: right;
-    padding: 3px 5px;
-    border-radius: 2px;
+  .target-cell input[type="checkbox"]{
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
   }
-  .target-cell input:focus{ outline: 1px solid var(--accent); }
 
   .controls{
     display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;
@@ -232,9 +227,9 @@
     font-family: var(--mono);
     font-weight: 600;
   }
-  tfoot tr.totals td{ background: rgba(127,216,88,0.07); color: var(--accent); }
+  tfoot tr.totals td{ background: rgba(79,184,214,0.07); color: var(--accent); }
   tfoot tr.target td{ background: rgba(232,163,61,0.07); color: var(--amber); }
-  tfoot tr.diff td.hit{ background: rgba(127,216,88,0.15); color: var(--accent); }
+  tfoot tr.diff td.hit{ background: rgba(79,184,214,0.15); color: var(--accent); }
   tfoot tr.diff td.miss{ background: rgba(229,72,77,0.12); color: var(--danger); }
   tfoot tr.diff td.na{ color: var(--text-dim); }
 
@@ -272,16 +267,13 @@
 <div class="wrap">
 
   <header>
-    <p class="eyebrow">// Field Kit — Offline Build</p>
     <h1>CURE SYNTHESIS TERMINAL</h1>
-    <p class="subtitle">Set the symptom targets you're curing this round, then solve or mix manually.
-    Runs entirely in this browser tab — nothing is sent anywhere, no account or sign-in required.</p>
   </header>
 
   <div class="panel">
     <div class="panel-head">
       <h2>01 — Target Symptoms</h2>
-      <span class="hint">0 = ignore · non-zero = must hit exactly</span>
+      <span class="hint">off = ignore · on = exactly 100</span>
     </div>
     <div class="panel-body">
       <div class="target-grid" id="targetGrid"></div>
@@ -371,8 +363,10 @@ const M = SYMPTOMS.length;
 const MAX_CC_PER_INGREDIENT = 100;
 const MAX_NODES = 3000000;
 
+const TARGET_LEVEL = 100;
+
 let ccValues = new Array(N).fill(0);
-let targetValues = new Array(M).fill(0);
+let targetValues = new Array(M).fill(0); // each entry is either 0 (ignore) or TARGET_LEVEL (must hit exactly)
 
 // ---------- Build Target Grid ----------
 const targetGrid = document.getElementById('targetGrid');
@@ -380,11 +374,11 @@ SYMPTOMS.forEach((s, j) => {
   const cell = document.createElement('div');
   cell.className = 'target-cell';
   cell.id = 'targetCell' + j;
-  cell.innerHTML = `<label for="t${j}">${s}</label><input type="number" id="t${j}" min="0" step="5" value="0">`;
+  cell.innerHTML = `<label for="t${j}">${s}</label><input type="checkbox" id="t${j}">`;
   targetGrid.appendChild(cell);
-  cell.querySelector('input').addEventListener('input', e => {
-    targetValues[j] = Number(e.target.value) || 0;
-    cell.classList.toggle('active', targetValues[j] !== 0);
+  cell.querySelector('input').addEventListener('change', e => {
+    targetValues[j] = e.target.checked ? TARGET_LEVEL : 0;
+    cell.classList.toggle('active', e.target.checked);
     render();
   });
 });
@@ -451,7 +445,7 @@ function render() {
   let anyTargeted = false, allHit = true;
   for (let j = 0; j < M; j++) {
     totalsCells[j].textContent = totals[j];
-    targetCells[j].textContent = targetValues[j];
+    targetCells[j].textContent = targetValues[j] !== 0 ? targetValues[j] : '—';
     if (targetValues[j] !== 0) {
       anyTargeted = true;
       const diff = totals[j] - targetValues[j];
@@ -599,7 +593,7 @@ document.getElementById('solveBtn').addEventListener('click', () => {
 document.getElementById('clearTargetsBtn').addEventListener('click', () => {
   targetValues = new Array(M).fill(0);
   for (let j = 0; j < M; j++) {
-    document.getElementById('t' + j).value = 0;
+    document.getElementById('t' + j).checked = false;
     document.getElementById('targetCell' + j).classList.remove('active');
   }
   render();
