@@ -559,35 +559,55 @@ function solveCure(targetIdx, targetVals) {
   return { found: false, reason: timedOut ? 'timeout' : 'infeasible' };
 }
 
-document.getElementById('solveBtn').addEventListener('click', () => {
+document.getElementById('solveBtn').addEventListener('click', async () => {
   const targetIdx = [], targetVals = [];
   for (let j = 0; j < M; j++) if (targetValues[j] !== 0) { targetIdx.push(j); targetVals.push(targetValues[j]); }
 
   const resultsList = document.getElementById('resultsList');
+  const solveBtn = document.getElementById('solveBtn');
+  
   if (targetIdx.length === 0) {
     resultsList.innerHTML = '<span class="empty">Set at least one non-zero target first.</span>';
     return;
   }
 
-  resultsList.innerHTML = '<span class="empty">Solving…</span>';
-  setTimeout(() => {
-    const result = solveCure(targetIdx, targetVals);
-    if (!result.found) {
-      resultsList.innerHTML = result.reason === 'timeout'
-        ? '<span class="empty">Search limit reached — try fewer targets at once.</span>'
-        : '<span class="empty">No exact whole-number mix hits those targets.</span>';
-      return;
-    }
-    ccValues = result.solution.slice();
-    for (let i = 0; i < N; i++) document.getElementById('cc' + i).value = ccValues[i];
-    render();
+  // 1. Show loading state immediately
+  resultsList.innerHTML = '<span class="empty" style="color: var(--amber);">Loading... (Calculating optimal mix)</span>';
+  solveBtn.disabled = true;
+  solveBtn.textContent = 'Solving...';
+  solveBtn.style.opacity = '0.6';
+  solveBtn.style.cursor = 'wait';
 
-    const lines = [];
-    for (let i = 0; i < N; i++) {
-      if (ccValues[i] > 0) lines.push(`<div><span class="amt">${ccValues[i]}cc</span>${INGREDIENTS[i][0]}</div>`);
-    }
-    resultsList.innerHTML = `<div style="margin-bottom:8px;color:var(--text-dim)">${result.total}cc total —</div>` + lines.join('');
-  }, 10);
+  // 2. Yield to the browser for 50ms to GUARANTEE the DOM repaints the loading text
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  // 3. Run the heavy computation
+  const result = solveCure(targetIdx, targetVals);
+
+  // 4. Reset button state
+  solveBtn.disabled = false;
+  solveBtn.textContent = 'Solve Cure';
+  solveBtn.style.opacity = '1';
+  solveBtn.style.cursor = 'pointer';
+
+  // 5. Handle results
+  if (!result.found) {
+    resultsList.innerHTML = result.reason === 'timeout'
+      ? '<span class="empty" style="color: var(--danger);">Search limit reached. This combination is too complex. Try targeting fewer symptoms at once, or mix manually.</span>'
+      : '<span class="empty" style="color: var(--danger);">No exact whole-number mix hits those targets.</span>';
+    return;
+  }
+
+  // 6. Update UI with successful results
+  ccValues = result.solution.slice();
+  for (let i = 0; i < N; i++) document.getElementById('cc' + i).value = ccValues[i];
+  render();
+
+  const lines = [];
+  for (let i = 0; i < N; i++) {
+    if (ccValues[i] > 0) lines.push(`<div><span class="amt">${ccValues[i]}cc</span>${INGREDIENTS[i][0]}</div>`);
+  }
+  resultsList.innerHTML = `<div style="margin-bottom:8px;color:var(--accent)">Found optimal mix (${result.total}cc total):</div>` + lines.join('');
 });
 
 document.getElementById('clearTargetsBtn').addEventListener('click', () => {
