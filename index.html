@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cure Synthesis Terminal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root{
+    --bg: #0a0d09;
+    --panel: #10140d;
+    --panel-2: #151a10;
+    --line: #263420;
+    --text: #cfe0c4;
+    --text-dim: #7f9271;
+    --accent: #7fd858;
+    --accent-dim: #4f7a3a;
+    --amber: #e8a33d;
+    --danger: #e5484d;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at top left, rgba(127,216,88,0.05), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+    color: var(--text);
+    font-family: var(--sans);
+    padding: 28px 16px 60px;
+  }
+
+  .wrap{ max-width: 1180px; margin: 0 auto; }
+
+  /* ---------- Header ---------- */
+  header{
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 20px 24px;
+    margin-bottom: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before{
+    content:"";
+    position:absolute; inset:0;
+    background: repeating-linear-gradient(-45deg, rgba(232,163,61,0.06) 0 10px, transparent 10px 20px);
+    opacity:.5; pointer-events:none;
+  }
+  .eyebrow{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .18em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+  h1{
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: clamp(22px, 4vw, 32px);
+    letter-spacing: .01em;
+    margin: 0 0 4px;
+    color: var(--accent);
+    text-shadow: 0 0 18px rgba(127,216,88,0.25);
+  }
+  .subtitle{
+    font-size: 13px;
+    color: var(--text-dim);
+    max-width: 640px;
+    line-height: 1.5;
+  }
+
+  /* ---------- Panels ---------- */
+  .panel{
+    border: 1px solid var(--line);
+    background: var(--panel);
+    margin-bottom: 18px;
+  }
+  .panel-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .panel-head h2{
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--text);
+  }
+  .panel-head .hint{
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+  .panel-body{ padding: 18px; }
+
+  /* ---------- Target grid ---------- */
+  .target-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px,1fr));
+    gap: 8px;
+  }
+  .target-cell{
+    border: 1px solid var(--line);
+    background: var(--bg);
+    padding: 8px 10px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap: 8px;
+  }
+  .target-cell.active{ border-color: var(--accent-dim); background: rgba(127,216,88,0.06); }
+  .target-cell label{
+    font-size: 12px;
+    color: var(--text);
+    flex: 1;
+    cursor: pointer;
+  }
+  .target-cell input{
+    width: 54px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 13px;
+    text-align: right;
+    padding: 3px 5px;
+    border-radius: 2px;
+  }
+  .target-cell input:focus{ outline: 1px solid var(--accent); }
+
+  .controls{
+    display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;
+  }
+  button{
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    border: 1px solid var(--accent-dim);
+    background: transparent;
+    color: var(--accent);
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+  button:hover{ background: var(--accent); color: #08130a; }
+  button.secondary{ border-color: var(--line); color: var(--text-dim); }
+  button.secondary:hover{ background: var(--line); color: var(--text); }
+  button:focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  /* ---------- Status line ---------- */
+  .status{
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 14px 18px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    display:flex; align-items:center; gap:10px;
+    margin-top: 14px;
+  }
+  .status .dot{
+    width:9px; height:9px; border-radius:50%;
+    background: var(--text-dim);
+    box-shadow: 0 0 8px currentColor;
+  }
+  .status.ok .dot{ background: var(--accent); color: var(--accent); }
+  .status.bad .dot{ background: var(--danger); color: var(--danger); }
+  .status.idle .dot{ background: var(--text-dim); }
+
+  /* ---------- Table ---------- */
+  .table-scroll{
+    overflow-x: auto;
+    border: 1px solid var(--line);
+  }
+  table{
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 12px;
+    min-width: 1100px;
+  }
+  th, td{
+    border: 1px solid var(--line);
+    padding: 5px 6px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  thead th{
+    background: var(--panel-2);
+    font-weight: 500;
+    color: var(--text-dim);
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    height: 110px;
+    font-size: 11px;
+    letter-spacing: .02em;
+  }
+  thead th.corner{ writing-mode: horizontal-tb; transform:none; height:auto; text-align:left; }
+  tbody th{
+    text-align:left;
+    background: var(--panel-2);
+    color: var(--text);
+    font-weight: 500;
+    position: sticky; left:0;
+  }
+  tbody tr:nth-child(even) td, tbody tr:nth-child(even) th{ background: rgba(255,255,255,0.015); }
+  td.cc input{
+    width: 46px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--accent);
+    font-family: var(--mono);
+    text-align: center;
+    font-size: 12px;
+    padding: 2px;
+    border-radius: 2px;
+  }
+  td.cc input:focus{ outline: 1px solid var(--accent); }
+  td.zero{ color: #3a4633; }
+  td.pos{ color: var(--accent); }
+  td.neg{ color: var(--danger); }
+
+  tfoot th, tfoot td{
+    font-family: var(--mono);
+    font-weight: 600;
+  }
+  tfoot tr.totals td{ background: rgba(127,216,88,0.07); color: var(--accent); }
+  tfoot tr.target td{ background: rgba(232,163,61,0.07); color: var(--amber); }
+  tfoot tr.diff td.hit{ background: rgba(127,216,88,0.15); color: var(--accent); }
+  tfoot tr.diff td.miss{ background: rgba(229,72,77,0.12); color: var(--danger); }
+  tfoot tr.diff td.na{ color: var(--text-dim); }
+
+  .legend{
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+
+  .results-list{
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.9;
+  }
+  .results-list .empty{ color: var(--text-dim); }
+  .results-list .amt{ color: var(--accent); font-weight:600; margin-right:6px; }
+
+  footer{
+    text-align:center;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-top: 30px;
+    letter-spacing: .04em;
+  }
+
+  @media (max-width: 640px){
+    body{ padding: 16px 10px 40px; }
+    .panel-body{ padding: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">// Field Kit — Offline Build</p>
+    <h1>CURE SYNTHESIS TERMINAL</h1>
+    <p class="subtitle">Set the symptom targets you're curing this round, then solve or mix manually.
+    Runs entirely in this browser tab — nothing is sent anywhere, no account or sign-in required.</p>
+  </header>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>01 — Target Symptoms</h2>
+      <span class="hint">0 = ignore · non-zero = must hit exactly</span>
+    </div>
+    <div class="panel-body">
+      <div class="target-grid" id="targetGrid"></div>
+      <div class="controls">
+        <button id="solveBtn">Solve Cure</button>
+        <button id="clearTargetsBtn" class="secondary">Clear Targets</button>
+        <button id="clearCcBtn" class="secondary">Clear CC</button>
+      </div>
+      <div class="status idle" id="statusLine">
+        <span class="dot"></span>
+        <span id="statusText">Set a target above to begin.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>02 — Ingredient Matrix</h2>
+      <span class="hint" id="totalCcHint">0cc total used</span>
+    </div>
+    <div class="panel-body" style="padding:0;">
+      <div class="table-scroll">
+        <table id="mainTable">
+          <thead>
+            <tr id="headRow"><th class="corner">Ingredient</th><th class="corner">CC</th></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+          <tfoot>
+            <tr class="totals" id="totalsRow"><th colspan="2">TOTALS</th></tr>
+            <tr class="target" id="targetRow"><th colspan="2">TARGET</th></tr>
+            <tr class="diff" id="diffRow"><th colspan="2">DIFF</th></tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="legend panel-body">Green = symptom cured exactly · Red = targeted but off · Dim = not targeted. Edit CC cells directly for manual mixing, or use Solve Cure above for the minimum-volume mix.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>03 — Last Solve Result</h2></div>
+    <div class="panel-body">
+      <div class="results-list" id="resultsList"><span class="empty">No solve run yet.</span></div>
+    </div>
+  </div>
+
+  <footer>BLACK MESA CURE PROTOCOL · LOCAL COMPUTATION ONLY</footer>
+</div>
+
+<script>
+const SYMPTOMS = ["Migraine","Vertigo","Eye irritation","Nausea","Blindness","Chills","Fatigue","Fainting","Hallucinations","Skin rash","Sneezing","vomiting","fever","Cough","Sore Throat","Organ failure","paralysis","Muscle pain","coma"];
+
+const INGREDIENTS = [
+  ["dermatrix",  [0,0,5,0,0,0,0,0,0,10,-5,0,0,0,0,0,0,0,0]],
+  ["neuravex",   [-5,0,0,0,0,0,0,-5,15,0,0,0,0,0,0,0,0,0,0]],
+  ["Morvexis",   [0,0,0,0,0,0,0,0,0,0,-5,0,0,15,0,0,0,0,0]],
+  ["Oculyte",    [0,0,10,0,0,0,0,0,0,-5,0,0,0,0,0,0,0,0,0]],
+  ["Lumicet",    [-5,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  ["Bronchex",   [0,0,0,0,0,0,0,0,0,0,0,0,0,10,-5,0,0,0,0]],
+  ["Myocordin",  [0,0,0,0,0,0,-5,0,0,0,0,0,0,0,0,0,5,10,0]],
+  ["Hallucor",   [0,0,0,0,0,0,0,-5,15,0,0,0,0,0,0,0,0,0,0]],
+  ["Virexon",    [0,0,0,15,0,0,0,0,0,0,0,-5,0,0,0,0,0,0,0]],
+  ["organex",    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,-5]],
+  ["velmorin",   [0,0,0,0,0,0,10,0,0,0,0,0,-5,0,0,0,0,0,0]],
+  ["trivexol",   [0,0,0,0,0,-5,5,0,0,0,0,0,10,0,0,0,0,0,0]],
+  ["neurozil",   [15,0,-5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  ["cryostin",   [0,0,0,0,0,-5,0,0,0,0,0,0,10,0,0,0,0,0,0]],
+  ["throxil",    [0,0,0,0,0,0,0,0,0,0,0,0,0,-5,15,0,0,0,0]],
+  ["dermavax",   [0,0,-5,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0]],
+  ["synaptix",   [0,0,0,0,0,0,0,15,-5,0,0,0,0,0,0,0,0,0,0]],
+  ["clairion",   [10,0,0,0,-5,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  ["xenoviralyn",[0,0,0,0,0,15,0,0,0,0,0,0,-5,0,0,0,0,0,0]],
+  ["luxbane",    [-5,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],
+  ["stabilon",   [0,-5,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0]],
+  ["zypheral",   [0,0,0,0,0,0,0,0,0,0,15,0,0,-5,0,0,0,0,0]],
+  ["paralyth",   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,-5,0]],
+  ["vertigen",   [0,15,0,0,0,0,0,-5,0,0,0,0,0,0,0,0,0,0,0]],
+  ["organilax",  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,-5,0,-5]],
+  ["emetrolix",  [0,0,0,-5,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0]],
+  ["pulmovar",   [0,0,0,0,0,0,0,0,0,0,-5,0,0,10,5,0,0,0,0]],
+  ["somnora",    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,0,0,15]],
+  ["talorinex",  [0,0,0,0,0,0,-5,0,0,0,0,0,15,0,0,0,0,0,0]],
+  ["myonex",     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,15,0]]
+];
+
+const N = INGREDIENTS.length;
+const M = SYMPTOMS.length;
+const MAX_CC_PER_INGREDIENT = 100;
+const MAX_NODES = 3000000;
+
+let ccValues = new Array(N).fill(0);
+let targetValues = new Array(M).fill(0);
+
+// ---------- Build Target Grid ----------
+const targetGrid = document.getElementById('targetGrid');
+SYMPTOMS.forEach((s, j) => {
+  const cell = document.createElement('div');
+  cell.className = 'target-cell';
+  cell.id = 'targetCell' + j;
+  cell.innerHTML = `<label for="t${j}">${s}</label><input type="number" id="t${j}" min="0" step="5" value="0">`;
+  targetGrid.appendChild(cell);
+  cell.querySelector('input').addEventListener('input', e => {
+    targetValues[j] = Number(e.target.value) || 0;
+    cell.classList.toggle('active', targetValues[j] !== 0);
+    render();
+  });
+});
+
+// ---------- Build Table Head ----------
+const headRow = document.getElementById('headRow');
+SYMPTOMS.forEach(s => {
+  const th = document.createElement('th');
+  th.textContent = s;
+  headRow.appendChild(th);
+});
+
+// ---------- Build Table Body ----------
+const tbody = document.getElementById('tableBody');
+INGREDIENTS.forEach(([name, effects], i) => {
+  const tr = document.createElement('tr');
+  const th = document.createElement('th');
+  th.textContent = name;
+  tr.appendChild(th);
+
+  const ccTd = document.createElement('td');
+  ccTd.className = 'cc';
+  const ccInput = document.createElement('input');
+  ccInput.type = 'number';
+  ccInput.min = '0';
+  ccInput.value = '0';
+  ccInput.id = 'cc' + i;
+  ccInput.addEventListener('input', e => {
+    ccValues[i] = Math.max(0, Number(e.target.value) || 0);
+    render();
+  });
+  ccTd.appendChild(ccInput);
+  tr.appendChild(ccTd);
+
+  effects.forEach(v => {
+    const td = document.createElement('td');
+    td.textContent = v;
+    td.className = v === 0 ? 'zero' : (v > 0 ? 'pos' : 'neg');
+    tr.appendChild(td);
+  });
+  tbody.appendChild(tr);
+});
+
+// ---------- Footer rows ----------
+const totalsRow = document.getElementById('totalsRow');
+const targetRow = document.getElementById('targetRow');
+const diffRow = document.getElementById('diffRow');
+const totalsCells = [], targetCells = [], diffCells = [];
+for (let j = 0; j < M; j++) {
+  let td = document.createElement('td'); totalsRow.appendChild(td); totalsCells.push(td);
+  td = document.createElement('td'); targetRow.appendChild(td); targetCells.push(td);
+  td = document.createElement('td'); diffRow.appendChild(td); diffCells.push(td);
+}
+
+function render() {
+  const totals = new Array(M).fill(0);
+  for (let i = 0; i < N; i++) {
+    const cc = ccValues[i];
+    if (!cc) continue;
+    const eff = INGREDIENTS[i][1];
+    for (let j = 0; j < M; j++) totals[j] += cc * eff[j];
+  }
+
+  let anyTargeted = false, allHit = true;
+  for (let j = 0; j < M; j++) {
+    totalsCells[j].textContent = totals[j];
+    targetCells[j].textContent = targetValues[j];
+    if (targetValues[j] !== 0) {
+      anyTargeted = true;
+      const diff = totals[j] - targetValues[j];
+      diffCells[j].textContent = diff;
+      diffCells[j].className = diff === 0 ? 'hit' : 'miss';
+      if (diff !== 0) allHit = false;
+    } else {
+      diffCells[j].textContent = '—';
+      diffCells[j].className = 'na';
+    }
+  }
+
+  const totalCc = ccValues.reduce((a, b) => a + b, 0);
+  document.getElementById('totalCcHint').textContent = totalCc + 'cc total used';
+
+  const statusLine = document.getElementById('statusLine');
+  const statusText = document.getElementById('statusText');
+  if (!anyTargeted) {
+    statusLine.className = 'status idle';
+    statusText.textContent = 'Set a target above to begin.';
+  } else if (allHit) {
+    statusLine.className = 'status ok';
+    statusText.textContent = 'CURE COMPLETE — all targeted symptoms hit exactly.';
+  } else {
+    statusLine.className = 'status bad';
+    statusText.textContent = 'Not cured yet — adjust CC amounts or run Solve Cure.';
+  }
+}
+
+// ---------- Branch & bound solver (mirrors cure_solver.py's ILP) ----------
+function solveCure(targetIdx, targetVals) {
+  const relevant = [];
+  for (let i = 0; i < N; i++) {
+    const eff = INGREDIENTS[i][1];
+    if (targetIdx.some(j => eff[j] !== 0)) relevant.push(i);
+  }
+  if (relevant.length === 0) return { found: false, reason: 'none' };
+
+  const coeffs = relevant.map(i => targetIdx.map(j => INGREDIENTS[i][1][j]));
+  const m = coeffs.length, c = targetIdx.length;
+
+  const sufMax = [], sufMin = [];
+  for (let k = m; k >= 0; k--) {
+    sufMax[k] = new Array(c).fill(0);
+    sufMin[k] = new Array(c).fill(0);
+    if (k < m) {
+      for (let j = 0; j < c; j++) {
+        const coef = coeffs[k][j];
+        const hi = coef > 0 ? coef * MAX_CC_PER_INGREDIENT : 0;
+        const lo = coef < 0 ? coef * MAX_CC_PER_INGREDIENT : 0;
+        sufMax[k][j] = sufMax[k+1][j] + hi;
+        sufMin[k][j] = sufMin[k+1][j] + lo;
+      }
+    }
+  }
+
+  let best = null, bestTotal = Infinity, nodes = 0, timedOut = false;
+  const current = new Array(m).fill(0);
+  const partial = new Array(c).fill(0);
+
+  function dfs(k, runningTotal) {
+    nodes++;
+    if (nodes > MAX_NODES) { timedOut = true; return; }
+    if (runningTotal >= bestTotal) return;
+    for (let j = 0; j < c; j++) {
+      const need = targetVals[j] - partial[j];
+      if (need > sufMax[k][j] || need < sufMin[k][j]) return;
+    }
+    if (k === m) {
+      for (let j = 0; j < c; j++) if (partial[j] !== targetVals[j]) return;
+      best = current.slice();
+      bestTotal = runningTotal;
+      return;
+    }
+    let lo = 0, hi = MAX_CC_PER_INGREDIENT;
+    for (let j = 0; j < c; j++) {
+      const coef = coeffs[k][j];
+      if (coef === 0) continue;
+      const need2 = targetVals[j] - partial[j];
+      const maxOther = sufMax[k+1][j], minOther = sufMin[k+1][j];
+      let hiFrom, loFrom;
+      if (coef > 0) {
+        hiFrom = Math.ceil((need2 - minOther) / coef);
+        loFrom = Math.floor((need2 - maxOther) / coef);
+      } else {
+        hiFrom = Math.ceil((need2 - maxOther) / coef);
+        loFrom = Math.floor((need2 - minOther) / coef);
+      }
+      hi = Math.min(hi, hiFrom);
+      lo = Math.max(lo, loFrom);
+    }
+    lo = Math.max(0, lo);
+    hi = Math.min(MAX_CC_PER_INGREDIENT, hi);
+    for (let x = lo; x <= hi; x++) {
+      if (timedOut) return;
+      for (let j = 0; j < c; j++) partial[j] += coeffs[k][j] * x;
+      current[k] = x;
+      dfs(k + 1, runningTotal + x);
+      current[k] = 0;
+      for (let j = 0; j < c; j++) partial[j] -= coeffs[k][j] * x;
+    }
+  }
+
+  dfs(0, 0);
+
+  if (best) {
+    const full = new Array(N).fill(0);
+    relevant.forEach((origIdx, k) => { full[origIdx] = best[k]; });
+    return { found: true, solution: full, total: bestTotal };
+  }
+  return { found: false, reason: timedOut ? 'timeout' : 'infeasible' };
+}
+
+document.getElementById('solveBtn').addEventListener('click', () => {
+  const targetIdx = [], targetVals = [];
+  for (let j = 0; j < M; j++) if (targetValues[j] !== 0) { targetIdx.push(j); targetVals.push(targetValues[j]); }
+
+  const resultsList = document.getElementById('resultsList');
+  if (targetIdx.length === 0) {
+    resultsList.innerHTML = '<span class="empty">Set at least one non-zero target first.</span>';
+    return;
+  }
+
+  resultsList.innerHTML = '<span class="empty">Solving…</span>';
+  setTimeout(() => {
+    const result = solveCure(targetIdx, targetVals);
+    if (!result.found) {
+      resultsList.innerHTML = result.reason === 'timeout'
+        ? '<span class="empty">Search limit reached — try fewer targets at once.</span>'
+        : '<span class="empty">No exact whole-number mix hits those targets.</span>';
+      return;
+    }
+    ccValues = result.solution.slice();
+    for (let i = 0; i < N; i++) document.getElementById('cc' + i).value = ccValues[i];
+    render();
+
+    const lines = [];
+    for (let i = 0; i < N; i++) {
+      if (ccValues[i] > 0) lines.push(`<div><span class="amt">${ccValues[i]}cc</span>${INGREDIENTS[i][0]}</div>`);
+    }
+    resultsList.innerHTML = `<div style="margin-bottom:8px;color:var(--text-dim)">${result.total}cc total —</div>` + lines.join('');
+  }, 10);
+});
+
+document.getElementById('clearTargetsBtn').addEventListener('click', () => {
+  targetValues = new Array(M).fill(0);
+  for (let j = 0; j < M; j++) {
+    document.getElementById('t' + j).value = 0;
+    document.getElementById('targetCell' + j).classList.remove('active');
+  }
+  render();
+});
+
+document.getElementById('clearCcBtn').addEventListener('click', () => {
+  ccValues = new Array(N).fill(0);
+  for (let i = 0; i < N; i++) document.getElementById('cc' + i).value = 0;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
