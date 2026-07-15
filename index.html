@@ -279,6 +279,7 @@
       <div class="target-grid" id="targetGrid"></div>
       <div class="controls">
         <button id="solveBtn">Solve Cure</button>
+        <button id="adjustBtn" class="secondary">Adjust From Current Mix</button>
         <button id="clearTargetsBtn" class="secondary">Clear Targets</button>
         <button id="clearCcBtn" class="secondary">Clear CC</button>
       </div>
@@ -1352,8 +1353,25 @@ var solver = (function () {
             }
             return this;
         }
-        // TODO: Implement term removal if required by consumers.
-        removeTerm(_term) {
+        removeTerm(term) {
+            const varIndex = term.variable.index;
+            const existingTerm = this.termsByVarIndex[varIndex];
+            if (existingTerm === undefined) {
+                // Nothing to remove
+                return this;
+            }
+            // Zero out this variable's coefficient in the tableau, using the same
+            // signed-difference convention as addTerm/setVariableCoefficient above.
+            let difference = -existingTerm.coefficient;
+            if (this.isUpperBound === true) {
+                difference = -difference;
+            }
+            this.model.updateConstraintCoefficient(this, existingTerm.variable, difference);
+            delete this.termsByVarIndex[varIndex];
+            const idx = this.terms.indexOf(existingTerm);
+            if (idx !== -1) {
+                this.terms.splice(idx, 1);
+            }
             return this;
         }
         setRightHandSide(newRhs) {
@@ -1422,7 +1440,8 @@ var solver = (function () {
             this.lowerBound.addTerm(coefficient, variable);
             return this;
         }
-        // TODO: Implement term removal if required by consumers.
+        // Delegates to both underlying bound constraints, each of which removes
+        // its own record of the term (see Constraint.removeTerm above).
         removeTerm(_term) {
             this.upperBound.removeTerm(_term);
             this.lowerBound.removeTerm(_term);
@@ -4916,6 +4935,108 @@ document.getElementById('solveBtn').addEventListener('click', async () => {
     if (ccValues[i] > 0) lines.push(`<div><span class="amt">${ccValues[i]}cc</span>${INGREDIENTS[i][0]}</div>`);
   }
   resultsList.innerHTML = `<div style="margin-bottom:8px;color:var(--accent)">Found optimal mix (${result.total}cc total):</div>` + lines.join('');
+});
+
+// ---------- Minimal add/remove adjustment from a base mix ----------
+function solveAdjustment(targetIdx, targetVals, baseValues) {
+  const model = {
+    optimize: "cost",
+    opType: "min",
+    constraints: {},
+    variables: {},
+    ints: {}
+  };
+
+  targetIdx.forEach((j, k) => {
+    let currentTotal = 0;
+    for (let i = 0; i < N; i++) currentTotal += baseValues[i] * INGREDIENTS[i][1][j];
+    model.constraints[j] = { equal: targetVals[k] - currentTotal };
+  });
+
+  let anyRelevant = false;
+  for (let i = 0; i < N; i++) {
+    const eff = INGREDIENTS[i][1];
+    const touches = targetIdx.some(j => eff[j] !== 0);
+    if (!touches) continue;
+    anyRelevant = true;
+
+    const addVar = { cost: 1 };
+    targetIdx.forEach(j => { if (eff[j] !== 0) addVar[j] = eff[j]; });
+    model.variables['add' + i] = addVar;
+    model.ints['add' + i] = 1;
+
+    if (baseValues[i] > 0) {
+      const remVar = { cost: 1, ['cap' + i]: 1 };
+      targetIdx.forEach(j => { if (eff[j] !== 0) remVar[j] = -eff[j]; });
+      model.variables['rem' + i] = remVar;
+      model.ints['rem' + i] = 1;
+      model.constraints['cap' + i] = { max: baseValues[i] };
+    }
+  }
+
+  if (!anyRelevant) return { found: false, reason: 'none' };
+
+  const result = solver.Solve(model);
+  if (!result.feasible) return { found: false, reason: 'infeasible' };
+
+  const adds = new Array(N).fill(0);
+  const removes = new Array(N).fill(0);
+  for (let i = 0; i < N; i++) {
+    if (result['add' + i] !== undefined) adds[i] = Math.round(result['add' + i]);
+    if (result['rem' + i] !== undefined) removes[i] = Math.round(result['rem' + i]);
+  }
+  const full = baseValues.map((v, i) => v + adds[i] - removes[i]);
+  return { found: true, adds, removes, solution: full, totalEdits: Math.round(result.result) };
+}
+
+document.getElementById('adjustBtn').addEventListener('click', async () => {
+  const targetIdx = [], targetVals = [];
+  for (let j = 0; j < M; j++) if (targetValues[j] !== 0) { targetIdx.push(j); targetVals.push(targetValues[j]); }
+
+  const resultsList = document.getElementById('resultsList');
+  const adjustBtn = document.getElementById('adjustBtn');
+
+  if (targetIdx.length === 0) {
+    resultsList.innerHTML = '<span class="empty">Set at least one non-zero target first.</span>';
+    return;
+  }
+
+  resultsList.innerHTML = '<span class="empty" style="color: var(--amber);">Loading... (Calculating adjustments)</span>';
+  adjustBtn.disabled = true;
+  adjustBtn.textContent = 'Solving...';
+  adjustBtn.style.opacity = '0.6';
+  adjustBtn.style.cursor = 'wait';
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  const result = solveAdjustment(targetIdx, targetVals, ccValues.slice());
+
+  adjustBtn.disabled = false;
+  adjustBtn.textContent = 'Adjust From Current Mix';
+  adjustBtn.style.opacity = '1';
+  adjustBtn.style.cursor = 'pointer';
+
+  if (!result.found) {
+    resultsList.innerHTML = '<span class="empty" style="color: var(--danger);">No way to reach those targets from the current mix — that combination is impossible with these ingredients.</span>';
+    return;
+  }
+
+  if (result.totalEdits === 0) {
+    resultsList.innerHTML = '<span class="empty" style="color: var(--accent);">Current mix already hits every target exactly — no changes needed.</span>';
+    return;
+  }
+
+  ccValues = result.solution.slice();
+  for (let i = 0; i < N; i++) document.getElementById('cc' + i).value = ccValues[i];
+  render();
+
+  const addLines = [], removeLines = [];
+  for (let i = 0; i < N; i++) {
+    if (result.adds[i] > 0) addLines.push(`<div><span class="amt" style="color:var(--accent)">+${result.adds[i]}cc</span>${INGREDIENTS[i][0]}</div>`);
+    if (result.removes[i] > 0) removeLines.push(`<div><span class="amt" style="color:var(--danger)">−${result.removes[i]}cc</span>${INGREDIENTS[i][0]}</div>`);
+  }
+  resultsList.innerHTML =
+    `<div style="margin-bottom:8px;color:var(--text-dim)">${result.totalEdits}cc total change —</div>` +
+    addLines.join('') + removeLines.join('');
 });
 
 document.getElementById('clearTargetsBtn').addEventListener('click', () => {
